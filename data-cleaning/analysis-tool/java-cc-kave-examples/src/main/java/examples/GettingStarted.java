@@ -16,6 +16,8 @@
 package examples;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.LinkedList;
 import java.util.List;
@@ -24,6 +26,8 @@ import java.util.Set;
 import cc.kave.commons.model.events.CommandEvent;
 import cc.kave.commons.model.events.IDEEvent;
 import cc.kave.commons.model.events.completionevents.CompletionEvent;
+import cc.kave.commons.model.events.testrunevents.TestCaseResult;
+import cc.kave.commons.model.events.testrunevents.TestResult;
 import cc.kave.commons.model.events.testrunevents.TestRunEvent;
 import cc.kave.commons.model.events.visualstudio.BuildEvent;
 import cc.kave.commons.model.events.visualstudio.DebuggerEvent;
@@ -40,12 +44,27 @@ import cc.kave.commons.utils.io.ReadingArchive;
 public class GettingStarted {
 
 	private String eventsDir;
+	
+	private FileWriter testEventWriter;
+	private FileWriter editEventWriter;
+	private FileWriter buildEventWriter;
 
 	public GettingStarted(String eventsDir) {
 		this.eventsDir = eventsDir;
 	}
 
 	public void run() {
+		
+		try {
+			testEventWriter = new FileWriter("testEvents.csv");
+			testEventWriter.append("sessionID,timestamp,totalTests,testsPassed\n");
+			editEventWriter = new FileWriter("editEvents.csv");
+			editEventWriter.append("sessionID,timestamp\n");
+			buildEventWriter = new FileWriter("buildEvents.csv");
+			buildEventWriter.append("sessionID,timestamp,buildSuccessful\n");
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 
 		System.out.printf("looking (recursively) for events in folder %s\n", new File(eventsDir).getAbsolutePath());
 
@@ -68,7 +87,7 @@ public class GettingStarted {
 		try (IReadingArchive ra = new ReadingArchive(new File(eventsDir, userZip))) {
 			// ... and iterate over content.
 			// the iteration will stop after 200 events to speed things up.
-			while (ra.hasNext() && (numProcessedEvents++ < 500)) {
+			while (ra.hasNext() /*&& (numProcessedEvents < 500)*/) {
 				/*
 				 * within the userZip, each stored event is contained as a single file that
 				 * contains the Json representation of a subclass of IDEEvent.
@@ -77,6 +96,10 @@ public class GettingStarted {
 
 				// the events can then be processed individually
 				processEvent(e);
+				numProcessedEvents++;
+				if(numProcessedEvents%10000==0) {
+					System.out.println(numProcessedEvents + " done");
+				}
 			}
 		}
 	}
@@ -96,24 +119,53 @@ public class GettingStarted {
 	private void processEvent(IDEEvent e) {
 
 		if (e instanceof BuildEvent) {
+			//System.out.println("Build Event detected");
 			processBuildEvent((BuildEvent)e);
 		} else if (e instanceof EditEvent) {
+			//System.out.println("Edit Event detected");
 			processEditEvent((EditEvent)e);
 		} else if (e instanceof TestRunEvent) {
+			//System.out.println("Test Event detected");
 			processTestEvent((TestRunEvent)e);
 		}
 
 	}
 	
 	private void processTestEvent(TestRunEvent e) {
-		System.out.printf("test event found");
+		int totalTests = 0;
+		int testsPassed = 0;
+		for(TestCaseResult t : e.Tests) {
+			totalTests++;
+			if(t.Result.equals(TestResult.Success))  {
+				testsPassed++;
+			}
+		}
+		String str = e.IDESessionUUID.toString()+","+e.TriggeredAt.toString()+","+totalTests+","+testsPassed;
+		//System.out.println("TestEvent: "+str);
+		try {
+			testEventWriter.append(str+"\n");
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
 	}
 
 	private void processEditEvent(EditEvent e) {
-		System.out.printf("EditEvent detected\n");
+		String str = e.IDESessionUUID.toString()+","+e.TriggeredAt.toString();
+		//System.out.println("EditEvent: "+str);
+		try {
+			editEventWriter.append(str+"\n");
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
 	}
 
 	private void processBuildEvent(BuildEvent e) {
-		System.out.printf("Build pass: %s\n", e.Targets.stream().map(b->b.Successful).allMatch(p->p));
+		String str = e.IDESessionUUID.toString()+","+e.TriggeredAt.toString()+","+e.Targets.stream().map(b->b.Successful).allMatch(p->p);
+		//System.out.println("BuildEvent "+str);
+		try {
+			buildEventWriter.append(str+"\n");
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
 	}
 }

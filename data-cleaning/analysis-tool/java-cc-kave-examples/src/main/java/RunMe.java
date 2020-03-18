@@ -38,5 +38,6 @@ public class RunMe {
 
 		new GettingStarted(eventsDir).run();
 		//new GettingStartedContexts(contextsDir).run();
+		System.out.println("DONE WITH ALL");
 	}
 }
