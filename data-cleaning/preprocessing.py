@@ -50,7 +50,7 @@ def build_dictionary(df):
 
 # todo: figure out splitting logic
 def split_long_sesions(dict):
-
+    pass
     
 
 
