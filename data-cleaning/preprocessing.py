@@ -123,7 +123,8 @@ def import_data(path, filename):
     return pd.read_csv(os.path.join(path, filename))
     
 
-
+def save_to_file(df, filename):
+    df.to_csv(filename, encoding='utf-8')
 
 
 if __name__ == "__main__":
@@ -142,4 +143,8 @@ if __name__ == "__main__":
     print(df_build.head())
     print(df_edit.head())
     print(df_test.head())
+
+    save_to_file(df_build, 'df_build.csv')
+    save_to_file(df_edit, 'df_edit.csv')
+    save_to_file(df_test, 'df_test.csv')
 
