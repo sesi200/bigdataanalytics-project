@@ -3,7 +3,8 @@ import os
 from datetime import datetime
 
 #maximum session duration in minutes
-MAX_SESSION_DURATION = 1
+MAX_SESSION_DURATION = 60
+SESSION_TIMEOUT_SECONDS = 300 # after that many seconds of no activity the session counts as ended
 id_counter = 0
 
 # parsing timestamps into python timestamps
@@ -81,13 +82,10 @@ def split_long_sessions(df1, df2, df3):
     initial_id = df['sessionID'].iloc(0)
     # start of each session
     session_start = df['timestamp'].iloc(0)
+    last_activity = session_start
     new_id = None
     is_split = False
-    test_index = 0
     for index, row in df.iterrows():
-        if test_index > 10:
-            return (df1, df2, df3)
-        test_index += 1
 
         # true as long as we are considering rows that originate from the same session
         if row['sessionID'] == initial_id:
@@ -97,8 +95,9 @@ def split_long_sessions(df1, df2, df3):
                 row['sessionID'] = new_id
                 df.loc[index, 'sessionID'] = new_id
                 
-            difference = (row['timestamp'] - session_start).seconds / 60
-            if difference >= MAX_SESSION_DURATION:
+            session_duration = (row['timestamp'] - session_start).seconds / 60
+            time_since_last_activity = (row['timestamp'] - last_activity).seconds
+            if session_duration > MAX_SESSION_DURATION or time_since_last_activity > SESSION_TIMEOUT_SECONDS:
                 
                 is_split = True
                 new_id = generate_id()
@@ -106,10 +105,12 @@ def split_long_sessions(df1, df2, df3):
                 df.loc[index, 'sessionID'] = new_id
 
                 session_start = row['timestamp']
+            last_activity = row['timestamp']
         # completely new session
         else:
             initial_id = row['sessionID']
             session_start = row['timestamp']
+            last_activity = session_start
             new_id = None
             is_split = False
     
